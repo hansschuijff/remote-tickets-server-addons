@@ -5,8 +5,8 @@
  * @wordpress-plugin
  * Plugin Name:       Remote Tickets Server Add-ons
  * Plugin URI:        https://github.com/hansschuijff/remote-tickets-server-addons
- * Description:       Voegt wat extra gegevens toe aan de response van de The Events Calendar Rest API en maakt woocommerce geschikt om meerdere tickets via een url in de winkelmand te plaatsen.
- * Version:           0.1.0
+ * Description:       Adds custom event statuses and ticket metrics to The Events Calendar REST API and enables WooCommerce batch add-to-cart capabilities via URL.
+ * Version:           1.0.0
  * Author:            Hans Schuijff @hansschuijff
  * Author URI:        https://dewitteprins.nl
  * Text Domain:       remote-tickets-server-dwp
@@ -17,7 +17,7 @@
  * GitHub Plugin URI: https://github.com/hansschuijff/remote-tickets-server-addons
  * GitHub Branch:     master
  * Requires WP:       7.0
- * Tested up to:      7.4
+ * Tested up to:      7.0.4
  * Requires PHP:      8.4
  *
  * @package           DeWittePrins\RemoteTicketsServerAddons
@@ -25,17 +25,25 @@
  * @license           GPL-2.0
  * @link              https://dewitteprins.nl
  * @see               https://github.com/hansschuijff/remote-tickets-server-addons
- * @license           GPL-2.0
  */
 
 namespace DeWittePrins\RemoteTicketsServerAddons;
 
+// Exit if accessed directly.
 if ( ! \defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-// Registreer de handmatige PSR-4 Autoloader voor de nieuwe namespace
-\spl_autoload_register( function ( $class ) {
+/**
+ * Registers an anonymous function as a PSR-4 compliant autoloader for the project.
+ *
+ * Maps the namespace prefix to the local '/src/' directory, converts namespace
+ * separators to directory separators, and requires the target file if it exists.
+ *
+ * @param string $class The fully qualified class name to load.
+ * @return void
+ */
+\spl_autoload_register( function ( string $class ): void {
 	$prefix   = 'DeWittePrins\\RemoteTicketsServerAddons\\';
 	$base_dir = __DIR__ . '/src/';
 
@@ -52,5 +60,5 @@ if ( ! \defined( 'ABSPATH' ) ) {
 	}
 } );
 
-// Lanceer de plugin via de centrale bootstrapper
+// Launch the plugin architecture via the central bootstrapper.
 Plugin::launch();
