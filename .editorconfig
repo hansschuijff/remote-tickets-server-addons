@@ -6,6 +6,7 @@
 
 root = true
 
+# Global standards for all files
 [*]
 charset = utf-8
 end_of_line = lf
@@ -13,6 +14,17 @@ insert_final_newline = true
 trim_trailing_whitespace = true
 indent_style = tab
 
+# WordPress Coding Standards for Web languages
+# Note: WP Core mandates spaces for JS/JSON/CSS/SCSS
+[*.{js,json,css,scss}]
+indent_style = space
+indent_size = 4
+
+# Data serialization and CI/CD pipelines
 [*.{yml,yaml}]
 indent_style = space
-indent_size  = 4
+indent_size = 2
+
+# Markdown documentation handling
+[*.md]
+trim_trailing_whitespace = false
