@@ -18,23 +18,23 @@ jobs:
 
       - name: Build WordPress Plugin Zip
         run: |
-          # Maak een tijdelijke map aan met de juiste plugin-slugnaam
+          # 1. Maak een tijdelijke map aan met de juiste plugin-slugnaam
           mkdir -p remote-tickets-server-addons
 
-          # Kopieer alle PHP bestanden, de src map en de documentatie naar de tijdelijke map
+          # 2. Kopieer de specifieke bestanden en mappen met de juiste naam
           cp -r src remote-tickets-server-addons/
-          cp remote-tickets-rest-api-addons.php remote-tickets-server-addons/
+          cp remote-tickets-server-addons.php remote-tickets-server-addons/
           cp readme.txt remote-tickets-server-addons/
-          cp LICENSE remote-tickets-server-addons/ 2>/dev/null || true
+          cp .editorconfig remote-tickets-server-addons/ 2>/dev/null || true
 
-          # Zip de map (zonder verborgen git-bestanden, IDE-mappen en dev-notes)
+          # 3. Zip de map (sluit eventuele dev-notes en verborgen git-bestanden uit)
           zip -r remote-tickets-server-addons.zip remote-tickets-server-addons -x "*.git*" "remote-tickets-server-addons/dev-notes/*"
 
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Gebruik de ingebouwde GitHub CLI om de release aan te maken en het zip-bestand te koppelen
+          # Gebruik de ingebouwde GitHub CLI om de release aan te maken en de zip te koppelen
           gh release create ${{ github.ref_name }} remote-tickets-server-addons.zip \
             --title "${{ github.ref_name }}" \
             --generate-notes
