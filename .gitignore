@@ -1,53 +1,44 @@
-# Logs
-logs
+# ==============================================================================
+# Ultimate WordPress Plugin GitIgnore Blueprint
+# ==============================================================================
+
+# Runtime Logs
+/logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# tijdelijke backup-versies van bestanden (voor als je even een oudere versie wil veiligstellen)
+# Backup Files & Localization Backups (e.g., Loco Translate)
 *.bak
+*.po~
+*.pot~
+*~
 
-# Coverage directory used by tools like istanbul
-coverage
+# Test Coverage
+/coverage/
 
-# Compiled binary addons (https://nodejs.org/api/addons.html)
-build/
-dist/
-
-# Dependency directories
-node_modules/
-
-# Composer packages
-vendor/
-
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
-.eslintcache
-
-# Output of `npm pack`
+# Compiled Production Artifacts & Assets
+/build/
+/dist/
 *.tgz
-
-# Output of `wp-scripts plugin-zip`
 *.zip
 
-# dotenv environment variables file
-.env
+# Dependency Directories
+/node_modules/
+/vendor/
 
-# Systeembestanden van macOS en Windows
+# Local Environment & Configurations
+.env
+.npm
+.eslintcache
+
+# OS-Specific Metadata Files
 .DS_Store
 Thumbs.db
 
-# lokale configuratiebestanden
-.env
+# IDE, Editor & Project Management Folders
+/.vscode/
+/.idea/
 
-# editorbestanden
-.vscode/
-.idea/
-
-# lokaal kladblok voor dev notities
-dev-notes/
-
-# .editorconfig
+# .editorconfig - mag je in git laten gaan.
