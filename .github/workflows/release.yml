@@ -31,9 +31,10 @@ jobs:
           zip -r remote-tickets-server-addons.zip remote-tickets-server-addons -x "*.git*" "remote-tickets-server-addons/dev-notes/*"
 
       - name: Create GitHub Release
-        uses: softprops/action-ghrelease@v2
-        with:
-          files: remote-tickets-server-addons.zip
-          generate_release_notes: true # Genereert automatisch de changelog op basis van commits
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Gebruik de ingebouwde GitHub CLI om de release aan te maken en het zip-bestand te koppelen
+          gh release create ${{ github.ref_name }} remote-tickets-server-addons.zip \
+            --title "${{ github.ref_name }}" \
+            --generate-notes
