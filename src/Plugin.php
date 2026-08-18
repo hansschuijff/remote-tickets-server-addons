@@ -39,7 +39,7 @@ class Plugin {
 	public static function launch(): void {
 		$services = [
 			RestApiExtension::class,
-			CartExtension::class,
+			WooCartExtension::class,
 		];
 
 		foreach ( $services as $service ) {

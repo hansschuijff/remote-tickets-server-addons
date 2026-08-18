@@ -16,11 +16,11 @@ if ( ! \defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Class CartExtension
+ * Class WooCartExtension
  *
  * Manages WooCommerce cart mechanics and custom batch additions via URL request variables.
  */
-class CartExtension {
+class WooCartExtension {
 
 	/**
 	 * Private constructor to prevent instantiation.
