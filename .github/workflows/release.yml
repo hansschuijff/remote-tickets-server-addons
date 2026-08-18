@@ -1,0 +1,39 @@
+name: Deploy and Release Plugin
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggert zodra je een tag pusht die begint met 'v', bijvoorbeeld v1.0.0
+
+permissions:
+  contents: write
+
+jobs:
+  build_release:
+    name: Create WordPress Plugin Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build WordPress Plugin Zip
+        run: |
+          # Maak een tijdelijke map aan met de juiste plugin-slugnaam
+          mkdir -p remote-tickets-server-addons
+
+          # Kopieer alle PHP bestanden, de src map en de documentatie naar de tijdelijke map
+          cp -r src remote-tickets-server-addons/
+          cp remote-tickets-rest-api-addons.php remote-tickets-server-addons/
+          cp readme.txt remote-tickets-server-addons/
+          cp LICENSE remote-tickets-server-addons/ 2>/dev/null || true
+
+          # Zip de map (zonder verborgen git-bestanden, IDE-mappen en dev-notes)
+          zip -r remote-tickets-server-addons.zip remote-tickets-server-addons -x "*.git*" "remote-tickets-server-addons/dev-notes/*"
+
+      - name: Create GitHub Release
+        uses: softprops/action-ghrelease@v2
+        with:
+          files: remote-tickets-server-addons.zip
+          generate_release_notes: true # Genereert automatisch de changelog op basis van commits
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
