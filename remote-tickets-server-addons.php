@@ -6,7 +6,7 @@
  * Plugin Name:       Remote Tickets Server Add-ons
  * Plugin URI:        https://github.com/hansschuijff/remote-tickets-server-addons
  * Description:       Adds custom event statuses and ticket metrics to The Events Calendar REST API and enables WooCommerce batch add-to-cart capabilities via URL.
- * Version:           1.1.0
+ * Version:           1.2.0
  * Author:            Hans Schuijff @hansschuijff
  * Author URI:        https://dewitteprins.nl
  * Text Domain:       remote-tickets-server-dwp
