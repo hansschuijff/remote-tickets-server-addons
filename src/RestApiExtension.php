@@ -74,14 +74,11 @@ class RestApiExtension {
 	}
 
 	/**
-	 * Filters the event archive data by enriching events and removing unbookable ones if requested.
+	 * Processes and filters the event archive data response from the REST API.
 	 *
-	 * Iterates through the Events Calendar REST API archive events, appends custom fields,
-	 * and filters out entries based on the 'hide_unbookable' request parameter.
-	 *
-	 * @param array $api_data The raw REST API response data containing a list of events.
-	 * @param mixed $request  The REST request object holding the query parameters.
-	 * @return array The filtered and enriched REST API response data.
+	 * @param array            $api_data The complete response array from the API.
+	 * @param \WP_REST_Request $request  The original request object.
+	 * @return array The modified (and potentially filtered) API data.
 	 */
 	public static function filter_tribe_rest_events_archive_data( array $api_data, mixed $request ): array {
 		// Return early if no events array is present.
@@ -112,13 +109,47 @@ class RestApiExtension {
 	}
 
 	/**
-	 * Determines whether a specific event should be hidden from the archive response.
+	 * Determines if an event should be hidden based on unbookable event_status
+	 * or the begin and end date not precisely matching (exact_date_match=1).
 	 *
-	 * @param array $event   The enriched event data.
-	 * @param mixed $request The REST request object holding query parameters.
-	 * @return bool True if the event should be hidden, false otherwise.
+	 * @param array            $event   The event data array.
+	 * @param \WP_REST_Request $request The current REST request object.
+	 * @return bool True if the event should be hidden/skipped, false otherwise.
 	 */
-	private static function should_hide_event( array $event, mixed $request ): bool {
+	private static function should_hide_event( array $event, \WP_REST_Request $request ): bool {
+		// Uses OR short-circuiting: if the first check is true, the second is skipped for performance.
+		return self::hide_unbookable_event( $event, $request ) || self::hide_different_datetime_event( $event, $request );
+	}
+
+	/**
+	 * Checks if the request demands that unbookable events are hidden.
+	 *
+	 * @param \WP_REST_Request $request The current REST request object.
+	 * @return bool True if unbookable events should be hidden, false otherwise.
+	 */
+	private static function should_hide_unbookable_events( \WP_REST_Request $request ): bool {
+		return isset( $request['hide_unbookable'] ) && '1' === $request['hide_unbookable'];
+	}
+
+	/**
+	 * Checks if an event status is classified as unbookable.
+	 *
+	 * @param string $event_status The status string to evaluate.
+	 * @return bool True if the status represents an unbookable state, false otherwise.
+	 */
+	private static function is_unbookable( string $event_status ): bool {
+		$unbookable_statuses = [ 'sold-out', 'sales-closed', 'hidden', 'past', 'canceled', 'postponed' ];
+		return \in_array( $event_status, $unbookable_statuses, true );
+	}
+
+	/**
+	 * Checks if the event should be hidden because its status is unbookable.
+	 *
+	 * @param array            $event   The event data array.
+	 * @param \WP_REST_Request $request The current REST request object.
+	 * @return bool True if the event is unbookable and should be hidden, false otherwise.
+	 */
+	private static function hide_unbookable_event( array $event, \WP_REST_Request $request ): bool {
 		if ( ! self::should_hide_unbookable_events( $request ) ) {
 			return false;
 		}
@@ -131,52 +162,74 @@ class RestApiExtension {
 	}
 
 	/**
-	 * Checks if the request requires unbookable events to be hidden.
+	 * Wrapper method to check if the event fails exact date matching.
 	 *
-	 * Evaluates the REST request parameters to determine if the 'hide_unbookable'
-	 * flag is explicitly enabled.
-	 *
-	 * @param \WP_REST_Request $request The REST request object.
-	 * @return bool True if unbookable events should be hidden, false otherwise.
+	 * @param array            $event   The event data array.
+	 * @param \WP_REST_Request $request The current REST request object.
+	 * @return bool True if exact date matching is enabled and dates do not match, false otherwise.
 	 */
-	private static function should_hide_unbookable_events( \WP_REST_Request $request ): bool {
-		if ( \function_exists( '\ddd' ) ) {
-			if ( \function_exists( '\DeWittePrins\CoreFunctionality\log' ) ) {
-				\DeWittePrins\CoreFunctionality\log(
-					array(
-						'filter' => \current_filter(),
-						'method' => __METHOD__ . ':' . __LINE__,
-						'isset( $request[\'hide_unbookable\'] )' => $request['hide_unbookable'],
-						' \'1\' === $request[\'hide_unbookable\'' => ('1' === $request['hide_unbookable']),
-						'hide_unbookable' => (isset( $request['hide_unbookable'] ) && '1' === $request['hide_unbookable']),
-					)
-				);
-			}
-		}
-		return isset( $request['hide_unbookable'] ) && '1' === $request['hide_unbookable'];
+	private static function hide_different_datetime_event( array $event, \WP_REST_Request $request ): bool {
+		return self::fails_exact_date_match( $event, $request );
 	}
 
 	/**
-	 * Checks if an event status is classified as unbookable.
+	 * Validates if the event fails the exact date matching criteria.
 	 *
-	 * @param string $event_status The status string to evaluate.
-	 * @return bool True if the status represents an unbookable state, false otherwise.
+	 * @param array            $event   The event data array.
+	 * @param \WP_REST_Request $request The current REST request object.
+	 * @return bool True if exact matching is active and either event start or end date does not match (or is missing), false otherwise.
 	 */
-	private static function is_unbookable( string $event_status ): bool {
-		$unbookable_statuses = [ 'sold-out', 'sales-closed', 'hidden', 'past', 'canceled', 'postponed' ];
-		if ( \function_exists( '\DeWittePrins\CoreFunctionality\log' ) ) {
-			\DeWittePrins\CoreFunctionality\log(
-				array(
-					'filter' => \current_filter(),
-					'method' => __METHOD__ . ':' . __LINE__,
-					// 'msg'    => 'message',
-					'$event_status' => $event_status,
-					'$unbookable_statuses' => $unbookable_statuses,
-					'is_unbookabel' => \in_array( $event_status, $unbookable_statuses, true ),
-				)
-			);
+	private static function fails_exact_date_match( array $event, \WP_REST_Request $request ): bool {
+		// If exact date match is not requested at all, bypass this check entirely.
+		if ( ! isset( $request['exact_date_match'] ) || '1' !== $request['exact_date_match'] ) {
+			return false;
 		}
-		return \in_array( $event_status, $unbookable_statuses, true );
+
+		$query_start = $request->get_param( 'start_date' );
+		$query_end   = $request->get_param( 'end_date' );
+
+		// If exact date match is enabled, BOTH dates are mandatory.
+		// If either is missing, the check fails immediately and the event is hidden.
+		if ( empty( $query_start ) || empty( $query_end ) ) {
+			return true;
+		}
+
+		$event_start = isset( $event['start_date'] ) ? (string) $event['start_date'] : '';
+		if ( ! self::is_same_datetime( (string) $query_start, $event_start ) ) {
+			return true;
+		}
+
+		$event_end = isset( $event['end_date'] ) ? (string) $event['end_date'] : '';
+		if ( ! self::is_same_datetime( (string) $query_end, $event_end ) ) {
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Compares two datetime strings safely by converting them to Unix timestamps.
+	 * This normalizes format variations (e.g., missing seconds or different date orders).
+	 *
+	 * @param string $date1 First datetime string (e.g., from query arg).
+	 * @param string $date2 Second datetime string (e.g., from REST API event data).
+	 * @return bool True if both represent the exact same moment in time, false otherwise.
+	 */
+	private static function is_same_datetime( string $date1, string $date2 ): bool {
+		if ( empty( $date1 ) || empty( $date2 ) ) {
+			return false;
+		}
+
+		// Convert both strings to Unix timestamps to strip away formatting differences.
+		$timestamp1 = \strtotime( \trim( $date1 ) );
+		$timestamp2 = \strtotime( \trim( $date2 ) );
+
+		// If either string is invalid and cannot be parsed, the match must fail.
+		if ( false === $timestamp1 || false === $timestamp2 ) {
+			return false;
+		}
+
+		return $timestamp1 === $timestamp2;
 	}
 
 	/**
