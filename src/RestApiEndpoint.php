@@ -2,14 +2,8 @@
 /**
  * Unified REST API Plural Endpoints and Service Layer Engine for Remote Ticket Blocks.
  *
- * Instead of using and extending the events calendar, it builds
- * entirely new endpoints specifically for the remote server needs
- * of the Remote Tickets Blocks plugin.
- *
- * It replaced the RestApiExtension use as of version 2.0.0 of that client plugin.
- *
  * @package DeWittePrins\RemoteTicketsServerAddons
- * @since   3.0.0
+ * @since   2.0.0
  */
 
 namespace DeWittePrins\RemoteTicketsServerAddons;
@@ -23,7 +17,7 @@ if ( ! \defined( 'ABSPATH' ) ) {
  *
  * Orchestrates the data-layer middleware service layer for synchronizing external events and tickets.
  * Exposes a strict REST-compliant plural workspace path routing strategy exclusively under the
- * '/events' resource collection namespace, matching industry standards like WordPress Core and WooCommerce.
+ * '/events' resource collection namespace, matching industry standards like WordPress Core.
  *
  * ARCHITECTURAL DESIGN INTENT:
  * This component resolves the critical "Ticket-Data Gap" found in native calendar APIs. Instead of splitting
@@ -40,8 +34,9 @@ if ( ! \defined( 'ABSPATH' ) ) {
  *
  * ROUTING MAP SCHEMAS:
  * 1. Plural Collection: /wp-json/dewitteprins/remote-tickets/v1/events
- *    - Strict Discovery Mode: Evaluated when 'title', 'start_date', and 'end_date' parameters are present.
- *      Performs a strict, exact meta-query evaluation to localize and verify exactly 1 unique shadow-event.
+ *    - Strict Discovery Mode: Evaluated when 'exact_date_match=1' is supplied along with strict date criteria.
+ *      Performs an exact meta-query and precise title match to localize and verify a unique shadow-event.
+ *      Returns an array containing exactly 1 item, or up to 2 items in case of a 409 database conflict.
  *    - Listings Query Mode: Evaluated as a horizontal timeline fallback. Filters upcoming future allocations
  *      by category slug criteria, optional partial keywords title lookup ('s'), and maximum threshold limits.
  * 2. Singular Entity Resource: /wp-json/dewitteprins/remote-tickets/v1/events/{id}
@@ -50,7 +45,7 @@ if ( ! \defined( 'ABSPATH' ) ) {
  *    - Delivers an ultralight dictionary payload containing visual names and sanitized slugs of 'tribe_events_cat'
  *      taxonomies, eliminating payload bloating inside React SelectControl dropdown elements.
  *
- * @since 3.0.0
+ * @since 2.0.0
  */
 class RestApiEndpoint {
 
@@ -59,14 +54,14 @@ class RestApiEndpoint {
 	 *
 	 * Enforces a strict, decoupled static utility and routing service architecture.
 	 *
-	 * @since 3.0.0
+	 * @since 2.0.0
 	 */
 	private function __construct() {}
 
 	/**
 	 * Hooks the route registration mechanics cleanly into the WordPress core REST framework lifecycle.
 	 *
-	 * @since 3.0.0
+	 * @since 2.0.0
 	 * @return void
 	 */
 	public static function init(): void {
@@ -78,7 +73,7 @@ class RestApiEndpoint {
 	 *
 	 * Defines validation constraints, parameters type-safety blocks, and hooks endpoints into the ecosystem.
 	 *
-	 * @since 3.0.0
+	 * @since 2.0.0
 	 * @return void
 	 */
 	public static function register_routes(): void {
@@ -123,8 +118,8 @@ class RestApiEndpoint {
 	 *
 	 * Decouples 'tribe_events_cat' taxonomies from overhead fields, delivering optimized name-slug pairs.
 	 *
-	 * @since 3.0.0
-	 * @return \WP_REST_Response Standard normalized REST response package containing the taxonomy payload.
+	 * @since 2.0.0
+	 * @return \WP_REST_Response Standard REST response containing the taxonomy payload.
 	 */
 	public static function get_remote_event_categories_callback(): \WP_REST_Response {
 		$terms = \get_terms( [
@@ -148,36 +143,46 @@ class RestApiEndpoint {
 	}
 
 	/**
-	 * REST API Collection Orchestrator: Branches incoming requests safely to the corresponding core engine.
+	 * REST API Collection Orchestrator: Branches incoming requests to the corresponding search or listing engine.
 	 *
-	 * Now securely bridges structural timeline parameters downstream into the query core pipeline.
+	 * Intercepts query variables and maps positive user-facing parameters safely to negative core filters.
 	 *
-	 * @since 3.0.0
+	 * @since 2.0.0
 	 * @param \WP_REST_Request $request Current incoming HTTP REST request container object.
 	 * @return \WP_REST_Response Fully compiled REST response package processed by downstream services.
 	 */
 	public static function handle_events_collection_request( \WP_REST_Request $request ): \WP_REST_Response {
-		$title      = $request->get_param( 'title' );
-		$start_date = $request->get_param( 'start_date' );
-		$end_date   = $request->get_param( 'end_date' );
+		$title       = $request->get_param( 'title' );
+		$start_date  = $request->get_param( 'start_date' );
+		$end_date    = $request->get_param( 'end_date' );
 		$exact_match = ( '1' === $request->get_param( 'exact_date_match' ) );
 
+		// Global show/hide modifier mapping
 		$hide_unbookable = true;
 		if ( '1' === $request->get_param( 'show_unbookable' ) ) {
 			$hide_unbookable = false;
 		}
 
-		// STRICT DISCOVERY SWITCH OPERATION: Executed ONLY when exact_date_match=1 is explicitly passed.
-		if ( $exact_match && ! empty( $title ) && ! empty( $start_date ) && ! empty( $end_date ) ) {
+		// STRICT DISCOVERY SWITCH: Trigger ONLY when exact_date_match=1 is explicitly passed.
+		if ( $exact_match ) {
+			// HARD GUARD: If the contract parameters are missing for this mode, return a 400 Bad Request immediately.
+			if ( empty( $title ) || empty( $start_date ) || empty( $end_date ) ) {
+				return new \WP_REST_Response( [
+					'code'    => 'remote_event_invalid_parameters',
+					'message' => 'Missing required framework parameters (title, start_date, end_date) for exact date matching mode.',
+					'data'    => [ 'status' => 400 ]
+				], 400 );
+			}
+
 			return self::execute_event_discovery_search( $request, $hide_unbookable );
 		}
 
-		// DYNAMIC LISTINGS RESOLVER: Captures category, title, limits AND vertical date window boundaries.
+		// DYNAMIC LISTINGS FALLBACK (Mode B): Capture range limits and pass to horizontal listing core.
 		$filters = [
 			'category'        => $request->get_param( 'category' ),
 			'title'           => $title,
-			'start_date'      => $start_date, // CRITICAL FIX: Bridge variables downstream into the core filter query matrix.
-			'end_date'        => $end_date,   // CRITICAL FIX: Enables period range filtering across timelines.
+			'start_date'      => $start_date,
+			'end_date'        => $end_date,
 			'limit'           => $request->get_param( 'limit' ),
 			'hide_unbookable' => $hide_unbookable,
 		];
@@ -188,15 +193,14 @@ class RestApiEndpoint {
 	}
 
 	/**
-	 * Internal Core Engine: Runs a precise metadata evaluation query matching explicit title and timestamps.
+	 * Internal Core Engine: Runs strict exact evaluation queries for unique discovery matching (Mode A).
 	 *
-	 * Returns all discovered matches inside a unified array collection layout. If zero entries match
-	 * the strict criteria framework, it returns a semantic 404 response to notify the client instantly.
+	 * Bounds query execution strictly to 2 posts to allow client duplicate inspection as documented.
 	 *
-	 * @since 3.0.0
-	 * @param \WP_REST_Request $request         Current incoming HTTP REST request parameters block.
-	 * @param bool             $hide_unbookable Resolved boolean flag controlling unbookable data extraction.
-	 * @return \WP_REST_Response Plural collection formatted JSON response wrapper containing all matched entities.
+	 * @since 2.0.0
+	 * @param \WP_REST_Request $request         Current incoming HTTP REST request containing query criteria.
+	 * @param bool             $hide_unbookable Evaluated boolean flag controlling unbookable data extraction.
+	 * @return \WP_REST_Response Standard normalized REST response package containing the filtered collection array.
 	 */
 	private static function execute_event_discovery_search( \WP_REST_Request $request, bool $hide_unbookable ): \WP_REST_Response {
 		$title      = $request->get_param( 'title' );
@@ -206,8 +210,7 @@ class RestApiEndpoint {
 		$args = [
 			'post_type'      => 'tribe_events',
 			'post_status'    => 'publish',
-			'title'          => \sanitize_text_field( $title ),
-			'posts_per_page' => -1, // Fetch all matches to let the client accurately detect duplicates.
+			'posts_per_page' => 2, // Fetch exactly up to 2 items to let the client inspect duplicates without overhead.
 			'meta_query'     => [
 				'relation' => 'AND',
 				[ 'key' => '_EventStartDate', 'value' => \sanitize_text_field( $start_date ), 'compare' => '=' ],
@@ -215,10 +218,18 @@ class RestApiEndpoint {
 			],
 		];
 
+		// Enforce an absolute 100% exact SQL match on the title for Mode A.
+		\add_filter( 'posts_title', function( $sql_title, $query ) use ( $title ) {
+			global $wpdb;
+			if ( $query->get( 'post_type' ) === 'tribe_events' ) {
+				return $wpdb->prepare( "AND {$wpdb->posts}.post_title = %s", \sanitize_text_field( $title ) );
+			}
+			return $sql_title;
+		}, 10, 2 );
+
 		$query  = new \WP_Query( $args );
 		$events = $query->posts;
 
-		// CRITICAL FIX: If no exact date match target exists in the database, return a structured 404 response framework.
 		if ( empty( $events ) ) {
 			return new \WP_REST_Response( [
 				'code'    => 'remote_event_not_found',
@@ -228,34 +239,41 @@ class RestApiEndpoint {
 		}
 
 		$response_payload = [];
-
-		// Compile the payload matrix for every found match (even duplicates).
 		foreach ( $events as $event_post ) {
 			$ticket_response = self::compile_event_tickets_response( (int) $event_post->ID, $hide_unbookable );
 			$response_payload[] = $ticket_response->get_data();
+		}
+
+		// If duplicate conflicts exist, return a HTTP 409 Conflict with the data payload mapped inside error data.
+		if ( \count( $events ) > 1 ) {
+			return new \WP_REST_Response( [
+				'code'    => 'remote_event_duplicate_conflict',
+				'message' => 'Database integrity conflict: Multiple identical remote events discovered matching these timestamps.',
+				'data'    => [
+					'status'    => 409,
+					'conflicts' => $response_payload
+				]
+			], 409 );
 		}
 
 		return new \WP_REST_Response( $response_payload, 200 );
 	}
 
 	/**
-	 * REST API Callback for Route 2: Processes rapid specific data delivery using direct unique URL index paths.
+	 * REST API Callback for Route 2: Direct lookup via explicit post ID path segment.
 	 *
-	 * Bypasses zillions of meta parsing constraints by tracking core object index cache structures.
-	 *
-	 * @since 3.0.0
-	 * @param \WP_REST_Request $request Current incoming HTTP REST request containing verified numerical ID path.
-	 * @return \WP_REST_Response Normalized data payload container matching the targeted post ID block.
+	 * @since 2.0.0
+	 * @param \WP_REST_Request $request Current incoming HTTP REST request container with validated ID segment.
+	 * @return \WP_REST_Response Fully compiled REST payload wrapper matching the direct database ID post.
 	 */
 	public static function get_event_by_id_callback( \WP_REST_Request $request ): \WP_REST_Response {
-		$event_id = (int) $request['id'];
-
+		$event_id   = (int) $request['id'];
 		$event_post = \get_post( $event_id );
+
 		if ( ! $event_post || 'tribe_events' !== $event_post->post_type || 'publish' !== $event_post->post_status ) {
 			return new \WP_REST_Response( [ 'message' => 'Target event not found.' ], 404 );
 		}
 
-		// Maintain unified interface parameter mapping strategies for singular lookups as well.
 		$hide_unbookable = true;
 		if ( '1' === $request->get_param( 'show_unbookable' ) ) {
 			$hide_unbookable = false;
@@ -265,13 +283,10 @@ class RestApiEndpoint {
 	}
 
 	/**
-	 * THE INTERNAL PHP CORE MOTOR: Retrieves a filtered timeline array of upcoming events and ticket metrics.
+	 * THE INTERNAL PHP CORE MOTOR: Unpacks and filters horizontal timelines arrays (Mode B / Local PHP).
 	 *
-	 * Prioritizes active ticket sales windows over generic chronological calendar statuses.
-	 * Explicitly allows events marked as past or closed to remain in the dataset if active sales exist.
-	 *
-	 * @since 3.0.0
-	 * @param array $filters Matrix array grid configuring runtime variables (category, title, limit, hide_unbookable, start_date, end_date).
+	 * @since 2.0.0
+	 * @param array $filters Matrix array grid configuring runtime variables (category, title, limit, hide_unbookable).
 	 * @return array Multi-dimensional layout data tree compiled from database entities.
 	 */
 	public static function get_internal_events_list( array $filters = [] ): array {
@@ -286,19 +301,9 @@ class RestApiEndpoint {
 		$meta_query = [ 'relation' => 'AND' ];
 
 		if ( ! empty( $range_end ) ) {
-			$meta_query[] = [
-				'key'     => '_EventStartDate',
-				'value'   => [ $range_start, $range_end ],
-				'compare' => 'BETWEEN',
-				'type'    => 'DATETIME',
-			];
+			$meta_query[] = [ 'key' => '_EventStartDate', 'value' => [ $range_start, $range_end ], 'compare' => 'BETWEEN', 'type' => 'DATETIME' ];
 		} else {
-			$meta_query[] = [
-				'key'     => '_EventStartDate',
-				'value'   => $range_start,
-				'compare' => '>=',
-				'type'    => 'DATETIME',
-			];
+			$meta_query[] = [ 'key' => '_EventStartDate', 'value' => $range_start, 'compare' => '>=', 'type' => 'DATETIME' ];
 		}
 
 		$args = [
@@ -318,13 +323,7 @@ class RestApiEndpoint {
 		}
 
 		if ( ! empty( $search_title ) ) {
-			\add_filter( 'posts_title', function( $title, $query ) use ( $search_title ) {
-				global $wpdb;
-				if ( $query->get( 'post_type' ) === 'tribe_events' ) {
-					return $wpdb->prepare( "AND {$wpdb->posts}.post_title = %s", \sanitize_text_field( $search_title ) );
-				}
-				return $title;
-			}, 10, 2 );
+			$args['s'] = \sanitize_text_field( $search_title );
 		}
 
 		$query  = new \WP_Query( $args );
@@ -343,21 +342,14 @@ class RestApiEndpoint {
 
 			$event_id    = (int) $event_post->ID;
 			$ticket_data = self::compile_event_tickets_response( $event_id, $hide_unbookable )->get_data();
-
-			// STRIKTEST SYSTEM SANITY SCREENING: Enforce bookable criteria based on TICKET availability.
 			if ( $hide_unbookable ) {
-				// 1. If no tickets exist or survived the filter, drop the event immediately.
 				if ( empty( $ticket_data['tickets'] ) ) {
 					continue;
 				}
-
-				// 2. HARD SECURITY GUARD: Intercept administrative blocks. Block ONLY genuinely dead states.
-				// Past, sales-closed, or hidden events are allowed to pass if they contain active tickets.
 				if ( \in_array( $ticket_data['event_status'], [ 'canceled', 'postponed' ], true ) ) {
 					continue;
 				}
 
-				// 3. TRANSACTION LAYER VALIDATION: Verify at least one individual sub-ticket is actively 'for-sale'.
 				$has_active_sales = false;
 				foreach ( $ticket_data['tickets'] as $compiled_ticket ) {
 					if ( 'for-sale' === $compiled_ticket['status'] ) {
@@ -367,31 +359,11 @@ class RestApiEndpoint {
 				}
 
 				if ( ! $has_active_sales ) {
-					continue; // Discard event item if all stock allocation arrays are locked.
+					continue;
 				}
 			}
 
-			$categories = [];
-			$terms      = \get_the_terms( $event_id, 'tribe_events_cat' );
-			if ( ! empty( $terms ) && ! \is_wp_error( $terms ) ) {
-				foreach ( $terms as $term ) {
-					$categories[] = [ 'term_id' => $term->term_id, 'name' => $term->name, 'slug' => $term->slug ];
-				}
-			}
-
-			$response_payload[] = [
-				'event_id'          => $event_id,
-				'event_title'       => \get_the_title( $event_id ),
-				'event_url'         => \get_permalink( $event_id ),
-				'event_start_date'  => \get_post_meta( $event_id, '_EventStartDate', true ),
-				'event_end_date'    => \get_post_meta( $event_id, '_EventEndDate', true ),
-				'event_categories'  => $categories,
-				'event_status'      => $ticket_data['event_status'] ?? 'scheduled',
-				'ticket_min_price'  => $ticket_data['ticket_min_price'] ?? null,
-				'ticket_currency'   => $ticket_data['ticket_currency'] ?? '€',
-				'tickets_remaining' => $ticket_data['tickets_remaining'] ?? 0,
-				'tickets'           => $ticket_data['tickets'] ?? [],
-			];
+			$response_payload[] = $ticket_data;
 		}
 
 		return $response_payload;
@@ -400,10 +372,11 @@ class RestApiEndpoint {
 	/**
 	 * CENTRAL COMPILATION MIDDLEWARE ENGINE: Merges database schemas and stock levels into a unique JSON container.
 	 *
-	 * Intercepts core framework matrices and resolves native framework pricing engine glitches at the server level.
-	 * Preserves strict native chronological event statuses while mapping underlying ticket arrays.
+	 * Intercepts core framework matrices, prioritizes active ticket sales over generic calendar timeline
+	 * statuses, resolves native framework pricing engine glitches, and appends associated categories.
+	 * Guarantees a strict, identical properties schema structure across all calling endpoints.
 	 *
-	 * @since 3.0.0
+	 * @since 2.0.0
 	 * @param int  $event_id        The target core database structural entity identifier.
 	 * @param bool $hide_unbookable Evaluation directive controlling whether unbookable lines are discarded.
 	 * @return \WP_REST_Response Standard normalized data payload package wrapper.
@@ -422,7 +395,7 @@ class RestApiEndpoint {
 		$event_status      = $custom_fields['event_status'] ?? 'scheduled';
 		$currency          = $custom_fields['ticket_currency'] ?? '€';
 
-		// Intercept and loop through tickets only if the administrative status permits trading.
+		// Parse stock values and process children metrics if status permits trading.
 		if ( ! \in_array( $event_status, [ 'canceled', 'postponed' ], true ) && \class_exists( 'Tribe__Tickets__Tickets' ) ) {
 			$tickets = \Tribe__Tickets__Tickets::get_all_event_tickets( $event_id );
 
@@ -488,6 +461,14 @@ class RestApiEndpoint {
 					];
 				}
 
+				// COMMERCE OVERRIDE: If the event status was chronologically resolved as 'past' or 'sales-closed',
+				// but active 'for-sale' tickets survived inside the pool, force the status to reflex active trading.
+				if ( ! empty( $compiled_tickets ) && $has_stock ) {
+					if ( \in_array( $event_status, [ 'past', 'sales-closed' ], true ) ) {
+						$event_status = 'for-sale';
+					}
+				}
+
 				// Fallback structural modifier adjustments based on remaining active matrix context.
 				if ( 'scheduled' === $event_status && empty( $compiled_tickets ) ) {
 					$event_status = 'sales-closed';
@@ -511,9 +492,27 @@ class RestApiEndpoint {
 			$final_remaining = 0;
 		}
 
-		// Structure final serialized schema package layout array.
+		// UNIFIED METADATA: Gather core event taxonomies.
+		$categories = [];
+		$terms      = \get_the_terms( $event_id, 'tribe_events_cat' );
+		if ( ! empty( $terms ) && ! \is_wp_error( $terms ) ) {
+			foreach ( $terms as $term ) {
+				$categories[] = [
+					'term_id' => $term->term_id,
+					'name'    => \html_entity_decode( $term->name ),
+					'slug'    => $term->slug,
+				];
+			}
+		}
+
+		// ASSEMBLE UNIVERSAL OBJECT FIELDS GRID:
 		$response_data = [
 			'event_id'          => $event_id,
+			'event_title'       => \get_the_title( $event_id ),
+			'event_url'         => \get_permalink( $event_id ),
+			'event_start_date'  => \get_post_meta( $event_id, '_EventStartDate', true ),
+			'event_end_date'    => \get_post_meta( $event_id, '_EventEndDate', true ),
+			'event_categories'  => $categories,
 			'event_status'      => $event_status,
 			'ticket_min_price'  => $min_price,
 			'ticket_currency'   => \sanitize_text_field( $currency ),
