@@ -41,4 +41,7 @@ Thumbs.db
 /.vscode/
 /.idea/
 
+# development
+/dev-notes/
+/dev-notes-local/
 # .editorconfig - mag je in git laten gaan.
