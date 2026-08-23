@@ -2,6 +2,18 @@
 /**
  * REST API Extension for The Events Calendar.
  *
+ * THis class extends the normal RestApi the events Calendar with some
+ * additional fields and filters, so it is more usefull for client plugins that
+ * need to respond to the event_status aand offer tickets.
+ *
+ * a filter hide_unbookable=1 is added so event statusses that implicate
+ * that no tickets can be for-sale are hidden from the response,
+ * events like canceled, postponed or past events.
+ *
+ * This ApiExtension was first developed for the Remote Tickets Block plugin,
+ * but was later replaced by a dedicated RestApiEndpoint class
+ * that offers more specific and complete data responses for that specific plugin.
+ *
  * Manages the hooks, filters, and actions required to extend The Events Calendar
  * REST API responses with custom event statuses and ticket metrics.
  *
