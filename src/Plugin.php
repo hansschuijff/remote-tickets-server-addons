@@ -38,7 +38,6 @@ class Plugin {
 	 */
 	public static function launch(): void {
 		$services = [
-			RestApiExtension::class,
 			RestApiEndpoint::class,
 			WooCartExtension::class,
 		];
