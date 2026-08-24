@@ -6,6 +6,7 @@
  * to add multiple products with specific quantities simultaneously via the URL.
  *
  * @package DeWittePrins\RemoteTicketsServerAddons
+ * @since   1.0.0
  */
 
 namespace DeWittePrins\RemoteTicketsServerAddons;
@@ -19,6 +20,8 @@ if ( ! \defined( 'ABSPATH' ) ) {
  * Class WooCartExtension
  *
  * Manages WooCommerce cart mechanics and custom batch additions via URL request variables.
+ *
+ * @since   1.0.0
  */
 class WooCartExtension {
 
@@ -34,6 +37,7 @@ class WooCartExtension {
 	/**
 	 * Initializes the cart extensions.
 	 *
+	 * @since   1.0.0
 	 * @return void
 	 */
 	public static function init(): void {
@@ -47,6 +51,7 @@ class WooCartExtension {
 	 * Supports the reliable and structured syntax: ?add-to-cart=101:1,102:3
 	 * Bypasses the native single-item WooCommerce restriction when this syntax is detected.
 	 *
+	 * @since   1.0.0
 	 * @return void
 	 */
 	public static function process_batch_add_to_cart(): void {

@@ -18,6 +18,7 @@
  * REST API responses with custom event statuses and ticket metrics.
  *
  * @package DeWittePrins\RemoteTicketsServerAddons
+ * @since   1.0.0
  */
 
 namespace DeWittePrins\RemoteTicketsServerAddons;
@@ -32,6 +33,8 @@ if ( ! \defined( 'ABSPATH' ) ) {
  *
  * Extends The Events Calendar REST API by providing custom ticket metrics,
  * real-time availability calculations, and event archiving filters.
+ *
+ * @since   1.0.0
  */
 class RestApiExtension {
 
@@ -40,6 +43,7 @@ class RestApiExtension {
 	 *
 	 * Enforces the usage of this class as a purely static utility class.
 	 *
+	 * @since   1.0.0
 	 * @codeCoverageIgnore
 	 */
 	private function __construct() {}
@@ -51,6 +55,7 @@ class RestApiExtension {
 	 * REST API filters and actions to modify event data and register
 	 * custom fields.
 	 *
+	 * @since   1.0.0
 	 * @return void
 	 */
 	public static function init(): void {
@@ -65,6 +70,7 @@ class RestApiExtension {
 	 * Extends the default 'tribe_events' post type schema by registering custom fields.
 	 * Each field utilizes get_event_custom_fields() to resolve its value dynamically.
 	 *
+	 * @since   1.0.0
 	 * @return void
 	 */
 	public static function register_custom_fields(): void {
@@ -88,6 +94,7 @@ class RestApiExtension {
 	/**
 	 * Processes and filters the event archive data response from the REST API.
 	 *
+	 * @since   1.0.0
 	 * @param array            $api_data The complete response array from the API.
 	 * @param \WP_REST_Request $request  The original request object.
 	 * @return array The modified (and potentially filtered) API data.
@@ -124,6 +131,7 @@ class RestApiExtension {
 	 * Determines if an event should be hidden based on unbookable event_status
 	 * or the begin and end date not precisely matching (exact_date_match=1).
 	 *
+	 * @since   1.0.0
 	 * @param array            $event   The event data array.
 	 * @param \WP_REST_Request $request The current REST request object.
 	 * @return bool True if the event should be hidden/skipped, false otherwise.
@@ -136,6 +144,7 @@ class RestApiExtension {
 	/**
 	 * Checks if the request demands that unbookable events are hidden.
 	 *
+	 * @since   1.0.0
 	 * @param \WP_REST_Request $request The current REST request object.
 	 * @return bool True if unbookable events should be hidden, false otherwise.
 	 */
@@ -146,6 +155,7 @@ class RestApiExtension {
 	/**
 	 * Checks if an event status is classified as unbookable.
 	 *
+	 * @since   1.0.0
 	 * @param string $event_status The status string to evaluate.
 	 * @return bool True if the status represents an unbookable state, false otherwise.
 	 */
@@ -157,6 +167,7 @@ class RestApiExtension {
 	/**
 	 * Checks if the event should be hidden because its status is unbookable.
 	 *
+	 * @since   1.0.0
 	 * @param array            $event   The event data array.
 	 * @param \WP_REST_Request $request The current REST request object.
 	 * @return bool True if the event is unbookable and should be hidden, false otherwise.
@@ -176,6 +187,7 @@ class RestApiExtension {
 	/**
 	 * Wrapper method to check if the event fails exact date matching.
 	 *
+	 * @since   1.0.0
 	 * @param array            $event   The event data array.
 	 * @param \WP_REST_Request $request The current REST request object.
 	 * @return bool True if exact date matching is enabled and dates do not match, false otherwise.
@@ -187,6 +199,7 @@ class RestApiExtension {
 	/**
 	 * Validates if the event fails the exact date matching criteria.
 	 *
+	 * @since   1.0.0
 	 * @param array            $event   The event data array.
 	 * @param \WP_REST_Request $request The current REST request object.
 	 * @return bool True if exact matching is active and either event start or end date does not match (or is missing), false otherwise.
@@ -223,6 +236,7 @@ class RestApiExtension {
 	 * Compares two datetime strings safely by converting them to Unix timestamps.
 	 * This normalizes format variations (e.g., missing seconds or different date orders).
 	 *
+	 * @since   1.0.0
 	 * @param string $date1 First datetime string (e.g., from query arg).
 	 * @param string $date2 Second datetime string (e.g., from REST API event data).
 	 * @return bool True if both represent the exact same moment in time, false otherwise.
@@ -250,6 +264,7 @@ class RestApiExtension {
 	 * Intercepts the prepared REST response data for an event, fetches the calculated
 	 * metrics via get_event_custom_fields(), and merges them into the payload.
 	 *
+	 * @since   1.0.0
 	 * @param array $event_data The prepared REST API data for an event.
 	 * @return array The enriched REST API response data containing the custom fields.
 	 */
@@ -271,6 +286,7 @@ class RestApiExtension {
 	 * including sales status, lowest ticket price, currency, and stock capacity.
 	 * Results are cached in the WordPress Object Cache to optimize performance.
 	 *
+	 * @since   1.0.0
 	 * @param int $event_id The ID of the event post to process.
 	 * @return array|false {
 	 *     Array of custom fields data, or false if the event is invalid.
@@ -397,6 +413,7 @@ class RestApiExtension {
 	 * that limitation by accepting the pre-retrieved property value and performing
 	 * a strict null check.
 	 *
+	 * @since   1.0.0
 	 * @param mixed $value The live retrieved value of the dynamic property.
 	 * @return bool True if the property value is explicitly set and not null, false otherwise.
 	 */

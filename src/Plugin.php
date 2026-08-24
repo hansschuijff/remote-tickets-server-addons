@@ -6,6 +6,7 @@
  * and subsystems within the plugin repository.
  *
  * @package DeWittePrins\RemoteTicketsServerAddons
+ * @since   1.0.0
  */
 
 namespace DeWittePrins\RemoteTicketsServerAddons;
@@ -19,6 +20,8 @@ if ( ! \defined( 'ABSPATH' ) ) {
  * Class Plugin
  *
  * The central bootstrapper class responsible for launching the plugin architecture.
+ *
+ * @since   1.0.0
  */
 class Plugin {
 
@@ -27,6 +30,7 @@ class Plugin {
 	 *
 	 * Enforces the usage of this class as a purely static bootstrapper.
 	 *
+ 	 * @since   1.0.0
 	 * @codeCoverageIgnore
 	 */
 	private function __construct() {}
@@ -34,6 +38,7 @@ class Plugin {
 	/**
 	 * Launches the plugin by initializing all registered subsystem services.
 	 *
+ 	 * @since   1.0.0
 	 * @return void
 	 */
 	public static function launch(): void {

@@ -40,6 +40,7 @@ if ( ! \defined( 'ABSPATH' ) ) {
  * Maps the namespace prefix to the local '/src/' directory, converts namespace
  * separators to directory separators, and requires the target file if it exists.
  *
+ * @since   1.0.0
  * @param string $class The fully qualified class name to load.
  * @return void
  */

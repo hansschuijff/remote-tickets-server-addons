@@ -160,7 +160,6 @@ This 11-field properties schema is identical across all endpoints. Note: The col
 = 2.0.0 =
 * Feature: Change and rebuild the REST API endpoint (`dewitteprins/remote-tickets/v1/events`) to support event-list building and directly inquiry using event_id.
 * Feature: New lightweight REST API endpoint `dewitteprins/remote-tickets/v1/event-categories` that retrieves all categories and -slugs to populate React <SelectControl> dropdown elements inside edit.js
-* Removed: RestApiExtension since The Events Calendars Rest Api is no longer used for the Remote Tickets functionality.
 
 = 1.2.0 =
 * Feature: Introduced a dedicated atomic REST API endpoint (`dewitteprins/remote-tickets/v1/event`) specifically optimized for the Remote Tickets Gutenberg block client.
