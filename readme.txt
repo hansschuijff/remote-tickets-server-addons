@@ -4,7 +4,7 @@ Tags: the-events-calendar, woocommerce, rest-api, event-tickets, autoload
 Requires at least: 7.0
 Tested up to: 7.0.4
 Requires PHP: 8.4
-Stable tag: 2.0.0
+Stable tag: 2.0.1
 License: GPL-2.0
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -156,6 +156,10 @@ This 11-field properties schema is identical across all endpoints. Note: The col
 *   `409 Conflict`: Returned strictly in Exact Match Mode if identical duplicate entries are found. The response includes the data payload of the conflicting entities within `error.data.conflicts`, enabling the client application to react instantly.
 
 == Changelog ==
+
+= 2.0.1 =
+* Rename master branch to main
+* make sure git updater only updates from release .zip files
 
 = 2.0.0 =
 * Feature: Change and rebuild the REST API endpoint (`dewitteprins/remote-tickets/v1/events`) to support event-list building and directly inquiry using event_id.
