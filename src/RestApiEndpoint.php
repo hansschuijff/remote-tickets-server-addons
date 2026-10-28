@@ -50,6 +50,22 @@ if ( ! \defined( 'ABSPATH' ) ) {
 class RestApiEndpoint {
 
 	/**
+	 * Number of events returned by the listings mode when no limit is given.
+	 *
+	 * @since 2.0.2
+	 * @var int
+	 */
+	private const DEFAULT_LIMIT = 5;
+
+	/**
+	 * Maximum number of events the listings mode returns, matching the block editor control.
+	 *
+	 * @since 2.0.2
+	 * @var int
+	 */
+	private const MAX_LIMIT = 50;
+
+	/**
 	 * Private constructor to explicitly prevent manual instantiation.
 	 *
 	 * Enforces a strict, decoupled static utility and routing service architecture.
@@ -83,11 +99,22 @@ class RestApiEndpoint {
 			'callback'            => [ __CLASS__, 'handle_events_collection_request' ],
 			'permission_callback' => '__return_true',
 			'args'                => [
-				'limit' => [
+				'limit'            => [
+					'default'           => self::DEFAULT_LIMIT,
 					'validate_callback' => function( $param ) {
-						return empty( $param ) || \is_numeric( $param );
-					}
+						return '' === $param || \is_numeric( $param );
+					},
+					// Clamp instead of reject, so out-of-range block settings still render a listing.
+					'sanitize_callback' => function( $param ) {
+						return '' === $param ? self::DEFAULT_LIMIT : \max( 1, \min( self::MAX_LIMIT, (int) $param ) );
+					},
 				],
+				'title'            => [ 'sanitize_callback' => 'sanitize_text_field' ],
+				'category'         => [ 'sanitize_callback' => 'sanitize_text_field' ],
+				'start_date'       => self::date_arg(),
+				'end_date'         => self::date_arg(),
+				'exact_date_match' => self::boolean_arg(),
+				'show_unbookable'  => self::boolean_arg(),
 			],
 		] );
 
@@ -97,11 +124,13 @@ class RestApiEndpoint {
 			'callback'            => [ __CLASS__, 'get_event_by_id_callback' ],
 			'permission_callback' => '__return_true',
 			'args'                => [
-				'id' => [
+				'id'              => [
 					'validate_callback' => function( $param ) {
 						return \is_numeric( $param );
-					}
+					},
+					'sanitize_callback' => 'absint',
 				],
+				'show_unbookable' => self::boolean_arg(),
 			],
 		] );
 
@@ -111,6 +140,39 @@ class RestApiEndpoint {
 			'callback'            => [ __CLASS__, 'get_remote_event_categories_callback' ],
 			'permission_callback' => '__return_true',
 		] );
+	}
+
+	/**
+	 * Returns the argument definition for an optional date filter.
+	 *
+	 * Accepts an empty value (clients send empty filters) or any string strtotime() can parse.
+	 *
+	 * @since 2.0.2
+	 * @return array REST argument definition.
+	 */
+	private static function date_arg(): array {
+		return [
+			'validate_callback' => function( $param ) {
+				return '' === $param || ( \is_string( $param ) && false !== \strtotime( $param ) );
+			},
+			'sanitize_callback' => 'sanitize_text_field',
+		];
+	}
+
+	/**
+	 * Returns the argument definition for a boolean flag such as show_unbookable.
+	 *
+	 * Accepts '1', '0', 'true' and 'false' and sanitizes them to a real boolean.
+	 *
+	 * @since 2.0.2
+	 * @return array REST argument definition.
+	 */
+	private static function boolean_arg(): array {
+		return [
+			'default'           => false,
+			'validate_callback' => 'rest_is_boolean',
+			'sanitize_callback' => 'rest_sanitize_boolean',
+		];
 	}
 
 	/**
@@ -155,13 +217,10 @@ class RestApiEndpoint {
 		$title       = $request->get_param( 'title' );
 		$start_date  = $request->get_param( 'start_date' );
 		$end_date    = $request->get_param( 'end_date' );
-		$exact_match = ( '1' === $request->get_param( 'exact_date_match' ) );
+		$exact_match = ( true === $request->get_param( 'exact_date_match' ) );
 
 		// Global show/hide modifier mapping
-		$hide_unbookable = true;
-		if ( '1' === $request->get_param( 'show_unbookable' ) ) {
-			$hide_unbookable = false;
-		}
+		$hide_unbookable = ( true !== $request->get_param( 'show_unbookable' ) );
 
 		// STRICT DISCOVERY SWITCH: Trigger ONLY when exact_date_match=1 is explicitly passed.
 		if ( $exact_match ) {
@@ -292,10 +351,7 @@ class RestApiEndpoint {
 			return new \WP_Error( 'remote_event_not_found', 'Target event not found.', [ 'status' => 404 ] );
 		}
 
-		$hide_unbookable = true;
-		if ( '1' === $request->get_param( 'show_unbookable' ) ) {
-			$hide_unbookable = false;
-		}
+		$hide_unbookable = ( true !== $request->get_param( 'show_unbookable' ) );
 
 		return self::compile_event_tickets_response( $event_id, $hide_unbookable );
 	}
