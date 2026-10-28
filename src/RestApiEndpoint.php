@@ -181,15 +181,24 @@ class RestApiEndpoint {
 	 * Decouples 'tribe_events_cat' taxonomies from overhead fields, delivering optimized name-slug pairs.
 	 *
 	 * @since 2.0.0
-	 * @return \WP_REST_Response Standard REST response containing the taxonomy payload.
+	 * @return \WP_REST_Response|\WP_Error Standard REST response containing the taxonomy payload, or a 500 error.
 	 */
-	public static function get_remote_event_categories_callback(): \WP_REST_Response {
+	public static function get_remote_event_categories_callback(): \WP_REST_Response|\WP_Error {
 		$terms = \get_terms( [
 			'taxonomy'   => 'tribe_events_cat', // Strictly isolate proprietary TEC taxonomy.
 			'hide_empty' => false,              // Keep items visible to allow selections within empty editor environments.
 		] );
 
-		if ( \is_wp_error( $terms ) || empty( $terms ) ) {
+		// Surface lookup failures (e.g. the TEC taxonomy is not registered) instead of masking them as an empty list.
+		if ( \is_wp_error( $terms ) ) {
+			return new \WP_Error(
+				'remote_event_categories_unavailable',
+				'Event categories could not be retrieved on this server.',
+				[ 'status' => 500 ]
+			);
+		}
+
+		if ( empty( $terms ) ) {
 			return new \WP_REST_Response( [], 200 );
 		}
 
