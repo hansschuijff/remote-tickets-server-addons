@@ -210,7 +210,8 @@ class RestApiEndpoint {
 		$args = [
 			'post_type'      => 'tribe_events',
 			'post_status'    => 'publish',
-			'posts_per_page' => 2, // Fetch exactly up to 2 items to let the client inspect duplicates without overhead.
+			'posts_per_page' => -1, // Few events share exact timestamps; the title match below narrows them down.
+			'no_found_rows'  => true,
 			'meta_query'     => [
 				'relation' => 'AND',
 				[ 'key' => '_EventStartDate', 'value' => \sanitize_text_field( $start_date ), 'compare' => '=' ],
@@ -218,17 +219,17 @@ class RestApiEndpoint {
 			],
 		];
 
-		// Enforce an absolute 100% exact SQL match on the title for Mode A.
-		\add_filter( 'posts_title', function( $sql_title, $query ) use ( $title ) {
-			global $wpdb;
-			if ( $query->get( 'post_type' ) === 'tribe_events' ) {
-				return $wpdb->prepare( "AND {$wpdb->posts}.post_title = %s", \sanitize_text_field( $title ) );
-			}
-			return $sql_title;
-		}, 10, 2 );
+		$query = new \WP_Query( $args );
 
-		$query  = new \WP_Query( $args );
-		$events = $query->posts;
+		// Enforce an exact title match for Mode A. Compared in PHP on normalized titles, because clients send
+		// either the raw title (block editor) or the rendered get_the_title() output (texturized, entity-encoded).
+		$wanted_title = self::normalize_title( (string) $title );
+		$events       = \array_values( \array_filter( $query->posts, function( $event_post ) use ( $wanted_title ) {
+			return self::normalize_title( $event_post->post_title ) === $wanted_title;
+		} ) );
+
+		// Return up to 2 items to let the client inspect duplicates without overhead.
+		$events = \array_slice( $events, 0, 2 );
 
 		if ( empty( $events ) ) {
 			return new \WP_REST_Response( [
@@ -257,6 +258,23 @@ class RestApiEndpoint {
 		}
 
 		return new \WP_REST_Response( $response_payload, 200 );
+	}
+
+	/**
+	 * Normalizes an event title for exact comparison.
+	 *
+	 * Decodes HTML entities and applies the same typography as get_the_title() (wptexturize), so a raw
+	 * stored title and its rendered counterpart (e.g. '-' versus '&#8211;') compare as equal.
+	 *
+	 * @since 2.0.2
+	 * @param string $title Raw or rendered event title.
+	 * @return string Normalized title.
+	 */
+	private static function normalize_title( string $title ): string {
+		$title = \html_entity_decode( \wp_strip_all_tags( $title ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+		$title = \html_entity_decode( \wptexturize( $title ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+
+		return \trim( $title );
 	}
 
 	/**
