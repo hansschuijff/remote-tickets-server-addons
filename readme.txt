@@ -4,7 +4,7 @@ Tags: the-events-calendar, woocommerce, rest-api, event-tickets, autoload
 Requires at least: 7.0
 Tested up to: 7.0.4
 Requires PHP: 8.4
-Stable tag: 2.0.1
+Stable tag: 2.0.2
 License: GPL-2.0
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -156,6 +156,13 @@ This 11-field properties schema is identical across all endpoints. Note: The col
 *   `409 Conflict`: Returned strictly in Exact Match Mode if identical duplicate entries are found. The response includes the data payload of the conflicting entities within `error.data.conflicts`, enabling the client application to react instantly.
 
 == Changelog ==
+
+= 2.0.2 =
+* Fix: exact date matching (`exact_date_match=1`) now really checks the event title; the title filter it used does not exist in WordPress.
+* Fix: error responses (400, 404, 409) are returned as WP_Error; the 404 for an unknown event ID now also has a code and status.
+* Fix: `/event-categories` returns a 500 instead of an empty list when the categories cannot be retrieved.
+* Improvement: all REST arguments are declared, validated and sanitized; `limit` is clamped to 1-50 and `show_unbookable` also accepts `true`.
+* Improvement: The Events Calendar REST archive total is corrected for events hidden by `hide_unbookable` or `exact_date_match`.
 
 = 2.0.1 =
 * Rename master branch to main
