@@ -106,6 +106,7 @@ class RestApiExtension {
 		}
 
 		$filtered_events = [];
+		$hidden_count    = 0;
 
 		foreach ( $api_data['events'] as $event ) {
 			// Ensure $event is an array before processing
@@ -114,7 +115,8 @@ class RestApiExtension {
 				$event = self::add_custom_fields_to_event( $event );
 
 				// Negative selection: skip the event if it meets the hiding criteria.
-				if ( self::should_hide_event( $event, $request ) ) {
+				if ( $request instanceof \WP_REST_Request && self::should_hide_event( $event, $request ) ) {
+					++$hidden_count;
 					continue;
 				}
 			}
@@ -123,6 +125,12 @@ class RestApiExtension {
 		}
 
 		$api_data['events'] = $filtered_events;
+
+		// Keep the total (and the X-TEC-Total header TEC derives from it) in line with the hidden events.
+		// Only the events of this page are known here, so total_pages is left untouched.
+		if ( $hidden_count > 0 && isset( $api_data['total'] ) ) {
+			$api_data['total'] = \max( 0, (int) $api_data['total'] - $hidden_count );
+		}
 
 		return $api_data;
 	}
@@ -265,11 +273,12 @@ class RestApiExtension {
 	 * metrics via get_event_custom_fields(), and merges them into the payload.
 	 *
 	 * @since   1.0.0
-	 * @param array $event_data The prepared REST API data for an event.
-	 * @return array The enriched REST API response data containing the custom fields.
+	 * @param mixed $event_data The prepared REST API data for an event; anything else (e.g. a WP_Error
+	 *                          from an earlier filter) is passed through untouched.
+	 * @return mixed The enriched REST API response data containing the custom fields.
 	 */
-	public static function add_custom_fields_to_event( array $event_data ): array {
-		if ( isset( $event_data['id'] ) ) {
+	public static function add_custom_fields_to_event( mixed $event_data ): mixed {
+		if ( \is_array( $event_data ) && isset( $event_data['id'] ) ) {
 			$custom_data = self::get_event_custom_fields( (int) $event_data['id'] );
 
 			if ( $custom_data ) {
