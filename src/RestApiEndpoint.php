@@ -149,9 +149,9 @@ class RestApiEndpoint {
 	 *
 	 * @since 2.0.0
 	 * @param \WP_REST_Request $request Current incoming HTTP REST request container object.
-	 * @return \WP_REST_Response Fully compiled REST response package processed by downstream services.
+	 * @return \WP_REST_Response|\WP_Error Fully compiled REST response package, or an error with an HTTP status.
 	 */
-	public static function handle_events_collection_request( \WP_REST_Request $request ): \WP_REST_Response {
+	public static function handle_events_collection_request( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
 		$title       = $request->get_param( 'title' );
 		$start_date  = $request->get_param( 'start_date' );
 		$end_date    = $request->get_param( 'end_date' );
@@ -167,11 +167,11 @@ class RestApiEndpoint {
 		if ( $exact_match ) {
 			// HARD GUARD: If the contract parameters are missing for this mode, return a 400 Bad Request immediately.
 			if ( empty( $title ) || empty( $start_date ) || empty( $end_date ) ) {
-				return new \WP_REST_Response( [
-					'code'    => 'remote_event_invalid_parameters',
-					'message' => 'Missing required framework parameters (title, start_date, end_date) for exact date matching mode.',
-					'data'    => [ 'status' => 400 ]
-				], 400 );
+				return new \WP_Error(
+					'remote_event_invalid_parameters',
+					'Missing required framework parameters (title, start_date, end_date) for exact date matching mode.',
+					[ 'status' => 400 ]
+				);
 			}
 
 			return self::execute_event_discovery_search( $request, $hide_unbookable );
@@ -200,9 +200,9 @@ class RestApiEndpoint {
 	 * @since 2.0.0
 	 * @param \WP_REST_Request $request         Current incoming HTTP REST request containing query criteria.
 	 * @param bool             $hide_unbookable Evaluated boolean flag controlling unbookable data extraction.
-	 * @return \WP_REST_Response Standard normalized REST response package containing the filtered collection array.
+	 * @return \WP_REST_Response|\WP_Error Normalized REST response containing the matched event, or a 404/409 error.
 	 */
-	private static function execute_event_discovery_search( \WP_REST_Request $request, bool $hide_unbookable ): \WP_REST_Response {
+	private static function execute_event_discovery_search( \WP_REST_Request $request, bool $hide_unbookable ): \WP_REST_Response|\WP_Error {
 		$title      = $request->get_param( 'title' );
 		$start_date = $request->get_param( 'start_date' );
 		$end_date   = $request->get_param( 'end_date' );
@@ -232,11 +232,11 @@ class RestApiEndpoint {
 		$events = \array_slice( $events, 0, 2 );
 
 		if ( empty( $events ) ) {
-			return new \WP_REST_Response( [
-				'code'    => 'remote_event_not_found',
-				'message' => 'Target shadow event not found on this server matching the exact title and timestamps.',
-				'data'    => [ 'status' => 404 ]
-			], 404 );
+			return new \WP_Error(
+				'remote_event_not_found',
+				'Target shadow event not found on this server matching the exact title and timestamps.',
+				[ 'status' => 404 ]
+			);
 		}
 
 		$response_payload = [];
@@ -247,14 +247,14 @@ class RestApiEndpoint {
 
 		// If duplicate conflicts exist, return a HTTP 409 Conflict with the data payload mapped inside error data.
 		if ( \count( $events ) > 1 ) {
-			return new \WP_REST_Response( [
-				'code'    => 'remote_event_duplicate_conflict',
-				'message' => 'Database integrity conflict: Multiple identical remote events discovered matching these timestamps.',
-				'data'    => [
+			return new \WP_Error(
+				'remote_event_duplicate_conflict',
+				'Database integrity conflict: Multiple identical remote events discovered matching these timestamps.',
+				[
 					'status'    => 409,
-					'conflicts' => $response_payload
+					'conflicts' => $response_payload,
 				]
-			], 409 );
+			);
 		}
 
 		return new \WP_REST_Response( $response_payload, 200 );
@@ -282,14 +282,14 @@ class RestApiEndpoint {
 	 *
 	 * @since 2.0.0
 	 * @param \WP_REST_Request $request Current incoming HTTP REST request container with validated ID segment.
-	 * @return \WP_REST_Response Fully compiled REST payload wrapper matching the direct database ID post.
+	 * @return \WP_REST_Response|\WP_Error Fully compiled REST payload for the event, or a 404 error.
 	 */
-	public static function get_event_by_id_callback( \WP_REST_Request $request ): \WP_REST_Response {
+	public static function get_event_by_id_callback( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
 		$event_id   = (int) $request['id'];
 		$event_post = \get_post( $event_id );
 
 		if ( ! $event_post || 'tribe_events' !== $event_post->post_type || 'publish' !== $event_post->post_status ) {
-			return new \WP_REST_Response( [ 'message' => 'Target event not found.' ], 404 );
+			return new \WP_Error( 'remote_event_not_found', 'Target event not found.', [ 'status' => 404 ] );
 		}
 
 		$hide_unbookable = true;
